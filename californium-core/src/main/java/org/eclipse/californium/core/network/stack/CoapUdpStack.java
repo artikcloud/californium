@@ -78,6 +78,11 @@ public class CoapUdpStack extends BaseCoapStack {
 	/** The LOGGER. */
 	private final static Logger LOGGER = Logger.getLogger(CoapStack.class.getCanonicalName());
 
+	private ReliabilityLayer reliabilityLayer;
+	private ExchangeCleanupLayer exchangeCleanupLayer;
+	private ObserveLayer observeLayer;
+	private BlockwiseLayer blockwiseLayer;
+
 	/**
 	 * Creates a new stack for UDP as the transport.
 	 * 
@@ -87,22 +92,39 @@ public class CoapUdpStack extends BaseCoapStack {
 	public CoapUdpStack(final NetworkConfig config, final Outbox outbox) {
 		super(outbox);
 
-		ReliabilityLayer reliabilityLayer;
 		if (config.getBoolean(NetworkConfig.Keys.USE_CONGESTION_CONTROL) == true) {
 			reliabilityLayer = CongestionControlLayer.newImplementation(config);
 			LOGGER.log(Level.CONFIG, "Enabling congestion control: {0}", reliabilityLayer.getClass().getSimpleName());
 		} else {
 			reliabilityLayer = new ReliabilityLayer(config);
 		}
+		exchangeCleanupLayer = new ExchangeCleanupLayer();
+		observeLayer = new ObserveLayer(config);
+		blockwiseLayer = new BlockwiseLayer(config);
 
 		Layer layers[] = new Layer[] {
-				new ExchangeCleanupLayer(),
-				new ObserveLayer(config),
-				new BlockwiseLayer(config),
+				exchangeCleanupLayer,
+				observeLayer,
+				blockwiseLayer,
 				reliabilityLayer };
 
 		setLayers(layers);
-
 		// make sure the endpoint sets a MessageDeliverer
+	}
+
+	public ReliabilityLayer getReliabilityLayer() {
+		return reliabilityLayer;
+	}
+
+	public ExchangeCleanupLayer getExchangeCleanupLayer() {
+		return exchangeCleanupLayer;
+	}
+
+	public ObserveLayer getObserveLayer() {
+		return observeLayer;
+	}
+
+	public BlockwiseLayer getBlockwiseLayer() {
+		return blockwiseLayer;
 	}
 }
