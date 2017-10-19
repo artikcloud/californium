@@ -58,7 +58,11 @@ import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.InMemoryMessageExchangeStore;
+import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.network.stack.BlockwiseLayer;
+import org.eclipse.californium.core.network.stack.CoapStack;
+import org.eclipse.californium.core.network.stack.CoapUdpStack;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -96,6 +100,7 @@ public class BlockwiseClientSideTest {
 	private String reqtPayload;
 	private ClientBlockwiseInterceptor clientInterceptor = new ClientBlockwiseInterceptor();
 	private InMemoryMessageExchangeStore clientExchangeStore;
+	private BlockwiseLayer blockwiseLayer;
 
 	@BeforeClass
 	public static void init() {
@@ -118,7 +123,17 @@ public class BlockwiseClientSideTest {
 	public void setupEndpoints() throws Exception {
 
 		clientExchangeStore = new InMemoryMessageExchangeStore(config);
-		client = new CoapEndpoint(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), config, clientExchangeStore);
+
+		client = new CoapEndpoint(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), config,
+				clientExchangeStore) {
+
+			@Override
+			protected CoapStack createUdpStack(NetworkConfig config, Outbox outbox) {
+				CoapUdpStack coapUdpStack = new CoapUdpStack(config, outbox);
+				blockwiseLayer = coapUdpStack.getBlockwiseLayer();
+				return coapUdpStack;
+			}
+		};
 		client.addInterceptor(clientInterceptor);
 		client.start();
 		System.out.println("Client binds to port " + client.getAddress().getPort());
@@ -128,7 +143,7 @@ public class BlockwiseClientSideTest {
 	@After
 	public void shutdownEndpoints() {
 		try {
-			assertAllExchangesAreCompleted(config, clientExchangeStore);
+			assertAllExchangesAreCompleted(config, clientExchangeStore, blockwiseLayer);
 		} finally {
 			printServerLog(clientInterceptor);
 			client.destroy();

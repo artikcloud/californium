@@ -57,7 +57,11 @@ import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.InMemoryMessageExchangeStore;
+import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.network.stack.BlockwiseLayer;
+import org.eclipse.californium.core.network.stack.CoapStack;
+import org.eclipse.californium.core.network.stack.CoapUdpStack;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.rule.CoapNetworkRule;
@@ -90,7 +94,8 @@ public class ObserveServerSideTest {
 	private static CoapServer server;
 	private static InetSocketAddress serverAddress;
 	private static InMemoryMessageExchangeStore serverExchangeStore;
-	
+	private static BlockwiseLayer blockwiseLayer;
+
 	private LockstepEndpoint client;
 	private int mid = 7000;
 
@@ -121,9 +126,18 @@ public class ObserveServerSideTest {
 
 		server = new CoapServer();
 		serverExchangeStore = new InMemoryMessageExchangeStore(CONFIG);
-		server.addEndpoint(new CoapEndpoint(
+		CoapEndpoint coapEndpoint = new CoapEndpoint(
 				CoapEndpoint.createUDPConnector(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), CONFIG),
-				CONFIG, null, serverExchangeStore));
+				CONFIG, null, serverExchangeStore) {
+
+			@Override
+			protected CoapStack createUdpStack(NetworkConfig config, Outbox outbox) {
+				CoapUdpStack coapUdpStack = new CoapUdpStack(config, outbox);
+				blockwiseLayer = coapUdpStack.getBlockwiseLayer();
+				return coapUdpStack;
+			}
+		};
+		server.addEndpoint(coapEndpoint);
 		server.add(testObsResource);
 		server.getEndpoints().get(0).addInterceptor(serverInterceptor);
 		server.start();
@@ -142,7 +156,7 @@ public class ObserveServerSideTest {
 	@After
 	public void stopClient() {
 		try {
-			assertAllExchangesAreCompleted(CONFIG, serverExchangeStore);
+			assertAllExchangesAreCompleted(CONFIG, serverExchangeStore, blockwiseLayer);
 		} finally {
 			printServerLog(serverInterceptor);
 			

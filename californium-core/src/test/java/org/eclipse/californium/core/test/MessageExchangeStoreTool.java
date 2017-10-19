@@ -27,6 +27,7 @@ import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.network.InMemoryMessageExchangeStore;
 import org.eclipse.californium.core.network.MessageExchangeStore;
 import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.network.stack.BlockwiseLayer;
 
 /**
  * Test tools for MessageExchangeStore.
@@ -96,7 +97,35 @@ public class MessageExchangeStoreTool {
 			STORE_LOGGER.setLevel(level);
 		}
 	}
-	
+
+	/**
+	 * Assert, that exchanges store  and block-wise layer  are empty.
+	 * 
+	 * dump exchanges, if not empty.
+	 * 
+	 * @param config used network configuration.
+	 * @param exchangeStore message exchange store.
+	 */
+	public static void assertAllExchangesAreCompleted(NetworkConfig config, final MessageExchangeStore exchangeStore, final BlockwiseLayer layer) {
+		int exchangeLifetime = (int) config.getLong(NetworkConfig.Keys.EXCHANGE_LIFETIME);
+		int sweepInterval = config.getInt(NetworkConfig.Keys.MARK_AND_SWEEP_INTERVAL);
+		Level level = STORE_LOGGER.getLevel();
+		try {
+			waitUntilDeduplicatorShouldBeEmpty(exchangeLifetime, sweepInterval, new CheckCondition() {
+
+				@Override
+				public boolean isFulFilled() throws IllegalStateException {
+					return exchangeStore.isEmpty() && layer.isEmpty();
+				}
+			});
+			STORE_LOGGER.setLevel(Level.FINER);
+			assertTrue("message exchange store still contains exchanges", exchangeStore.isEmpty());
+			assertTrue("BlockwiseLayer still contains block status", layer.isEmpty());
+		} finally {
+			STORE_LOGGER.setLevel(level);
+		}
+	}
+
 	public static void waitUntilDeduplicatorShouldBeEmpty(final int exchangeLifetime, final int sweepInterval, CheckCondition check) {
 		try {
 			int timeToWait = exchangeLifetime + sweepInterval + 300; // milliseconds
