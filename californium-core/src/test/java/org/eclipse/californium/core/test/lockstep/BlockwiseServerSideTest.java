@@ -77,6 +77,7 @@ public class BlockwiseServerSideTest {
 	private static final int TEST_EXCHANGE_LIFETIME = 247; // milliseconds
 	private static final int TEST_SWEEP_DEDUPLICATOR_INTERVAL = 100; // milliseconds
 	private static final int TEST_PREFERRED_BLOCK_SIZE = 128; // bytes
+	private static final int TEST_BLOCKWISE_STATUS_LIFETIME = 300;
 	private static final int MAX_RESOURCE_BODY_SIZE = 1024;
 	private static final String RESOURCE_PATH = "test";
 
@@ -105,7 +106,7 @@ public class BlockwiseServerSideTest {
 				.setInt(NetworkConfig.Keys.MAX_RESOURCE_BODY_SIZE, MAX_RESOURCE_BODY_SIZE)
 				.setInt(NetworkConfig.Keys.MARK_AND_SWEEP_INTERVAL, TEST_SWEEP_DEDUPLICATOR_INTERVAL)
 				.setLong(NetworkConfig.Keys.EXCHANGE_LIFETIME, TEST_EXCHANGE_LIFETIME)
-				.setLong(NetworkConfig.Keys.BLOCKWISE_STATUS_LIFETIME, 300);
+				.setLong(NetworkConfig.Keys.BLOCKWISE_STATUS_LIFETIME, TEST_BLOCKWISE_STATUS_LIFETIME);
 	}
 
 	@Before
@@ -352,8 +353,13 @@ public class BlockwiseServerSideTest {
 		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).go();
 		client.expectResponse(ACK, CONTENT, tok, mid).block2(0, true, 128).size2(respPayload.length())
 			.payload(respPayload.substring(0, 128)).go();
+		Thread.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
+		
 		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(1, false, 128).go();
 		client.expectResponse(ACK, CONTENT, tok, mid).block2(1, true, 128).payload(respPayload.substring(128, 256)).go();
+		Thread.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
+		
+		assertTrue(!blockwiseLayer.isEmpty());
 		serverInterceptor.log(System.lineSeparator() + "//////// Missing last GET ////////");
 	}
 
@@ -386,10 +392,13 @@ public class BlockwiseServerSideTest {
 		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(0, true, 128).size1(reqtPayload.length())
 			.payload(reqtPayload.substring(0,  128)).go();
 		client.expectResponse(ACK, ResponseCode.CONTINUE, tok, mid).block1(0, true, 128).go();
-
+		Thread.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
+		
 		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(1, true, 128).payload(reqtPayload.substring(128,  256)).go();
 		client.expectResponse(ACK, ResponseCode.CONTINUE, tok, mid).block1(1, true, 128).go();
-
+		Thread.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
+		
+		assertTrue(!blockwiseLayer.isEmpty());
 		serverInterceptor.log(System.lineSeparator() + "//////// Missing last PUT ////////");
 	}
 
