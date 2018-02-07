@@ -21,17 +21,29 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 
+import io.netty.handler.ssl.SslHandler;
 import org.eclipse.californium.elements.CorrelationContext;
 import org.eclipse.californium.elements.RawData;
+import org.eclipse.californium.elements.auth.X509CertPath;
 
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLSession;
+import javax.security.cert.X509Certificate;
+import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.net.InetSocketAddress;
+import java.security.Principal;
+import java.security.cert.CertificateFactory;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Converts stream of bytes over TCP connection into distinct datagrams based on CoAP over TCP spec.
  */
 public class DatagramFramer extends ByteToMessageDecoder {
+
+	private static final Logger LOGGER = Logger.getLogger(DatagramFramer.class.getName());
 
 	public static int getLengthFieldSize(int len) {
 		if (len > 15 || len < 0) {
@@ -72,9 +84,19 @@ public class DatagramFramer extends ByteToMessageDecoder {
 			in.readBytes(data);
 			// This is TCP connector, so we know remote address is InetSocketAddress.
 			Channel channel = ctx.channel();
+			Principal identity = null;
+			SslHandler sslHandler = channel.pipeline().get(SslHandler.class);
+			if (sslHandler != null) {
+				SSLEngine sslEngine = sslHandler.engine();
+				SSLSession sslSession = sslEngine.getSession();
+				if (sslSession != null) {
+					identity = getX509CertPath(sslSession);
+				}
+			}
+
 			InetSocketAddress socketAddress = (InetSocketAddress) channel.remoteAddress();
 			CorrelationContext correlationContext = NettyContextUtils.buildCorrelationContext(channel);
-			RawData rawData = RawData.inbound(data, socketAddress, null, correlationContext, false);
+			RawData rawData = RawData.inbound(data, socketAddress, identity, correlationContext, false);
 			out.add(rawData);
 		}
 	}
@@ -103,5 +125,37 @@ public class DatagramFramer extends ByteToMessageDecoder {
 		// 2 4-bit nibbles (len + tlk_len) + length field + code field + token field.
 		return 2 + lengthFieldSize + tokenFieldSize;
 
+	}
+
+	private X509CertPath getX509CertPath(SSLSession sslSession) {
+		try {
+			X509Certificate[] peerCertificateChain = sslSession.getPeerCertificateChain();
+			if (peerCertificateChain != null && peerCertificateChain.length != 0) {
+				java.security.cert.CertPath javaCertPath = toJavaCertPath(peerCertificateChain);
+				return new X509CertPath(javaCertPath);
+			}
+		} catch (Exception e) {
+			// nothing to do
+		}
+
+		return null;
+	}
+
+	private static java.security.cert.CertPath toJavaCertPath(javax.security.cert.X509Certificate[] javaxCertificatePath) throws Exception {
+		List<java.security.cert.Certificate> javaCertificatePath = new LinkedList<>();
+		for (javax.security.cert.X509Certificate javaxCertificate : javaxCertificatePath) {
+			java.security.cert.Certificate javaCertificate = toJavaCertificate(javaxCertificate);
+			javaCertificatePath.add(javaCertificate);
+		}
+
+		CertificateFactory cf = CertificateFactory.getInstance("X.509");
+		return cf.generateCertPath(javaCertificatePath);
+	}
+
+	private static java.security.cert.Certificate toJavaCertificate(javax.security.cert.X509Certificate javaxCertificate) throws Exception {
+		byte[] encoded = javaxCertificate.getEncoded();
+		ByteArrayInputStream bis = new ByteArrayInputStream(encoded);
+		java.security.cert.CertificateFactory cf = java.security.cert.CertificateFactory.getInstance("X.509");
+		return cf.generateCertificate(bis);
 	}
 }
