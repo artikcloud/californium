@@ -963,6 +963,12 @@ public abstract class Handshaker {
 	 */
 	public void verifyCertificate(CertificateMessage message) throws HandshakeException {
 		if (message.getCertificateChain() != null) {
+			// rootCertificates == null, means that X509 should be disabled
+			// rootCertificates.length == 0, means that the validation would be performed in another layer
+			if (rootCertificates.length == 0) {
+				// TODO: enable this behavior only if a setting was set.
+				return;
+			}
 
 			Set<TrustAnchor> trustAnchors = getTrustAnchors(rootCertificates);
 

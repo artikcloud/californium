@@ -201,7 +201,9 @@ public class ServerHandshaker extends Handshaker {
 
 		this.supportedClientCertificateTypes = new ArrayList<>();
 		this.supportedClientCertificateTypes.add(CertificateType.RAW_PUBLIC_KEY);
-		if (rootCertificates != null && rootCertificates.length > 0) {
+		// rootCertificates == null, means that X509 should be disabled
+		// rootCertificates.length == 0, means that the validation would be performed in another layer
+		if (rootCertificates != null) {
 			int index = config.isSendRawKey() ? 1 : 0;
 			this.supportedClientCertificateTypes.add(index, CertificateType.X_509);
 		}
