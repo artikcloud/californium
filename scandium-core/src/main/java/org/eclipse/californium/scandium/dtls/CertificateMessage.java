@@ -289,6 +289,12 @@ public final class CertificateMessage extends HandshakeMessage {
 	public void verifyCertificate(X509Certificate[] trustedCertificates) throws HandshakeException {
 		if (certPath != null) {
 
+			// trustedCertificates == null, means that X509 should be disabled
+			// trustedCertificates.length == 0, means that the validation would be performed in another layer
+			if (trustedCertificates != null && trustedCertificates.length == 0) {
+				return;
+			}
+
 			Set<TrustAnchor> trustAnchors = getTrustAnchors(trustedCertificates);
 
 			try {
