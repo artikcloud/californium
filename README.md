@@ -1,3 +1,18 @@
+# Californium Artik
+Please note that this is a fork from [californium-2.0.0-M5](https://github.com/eclipse/californium/tree/2.0.0-M5).
+
+We have updated the support for client certificates.
+
+the specific changes are:
+- We try to get X509CertPath from the peer instead of getting the X500Principal: https://github.com/artikcloud/californium/commit/6e9f33b3756b8a3bdbb0a3010905a9851cf70b52
+- Allow to dynamically validate client certificates instead of having a defined list: https://github.com/artikcloud/californium/commit/f2ebbf0ca30a3a3be2b81f4984b4d9ddbbe30634
+
+It's worth to say that these changes are going to be integrated into the [californium-2.0.x](https://github.com/eclipse/californium/commits/2.0.x) branch, these tickets has the changes:
+- https://github.com/eclipse/californium/pull/554
+- https://github.com/eclipse/californium/pull/533
+
+
+# Californium
 ![Californium logo](californium-180.png)
 
 Eclipse Californium is a Java implementation of [RFC7252 - Constrained Application Protocol](http://tools.ietf.org/html/rfc7252) for IoT Cloud services. Thus, the focus is on scalability and usability instead of resource-efficiency
